@@ -36,6 +36,11 @@
         cursor: grabbing;
       }
 
+      .slider-container.zoomed .slide.active {
+        min-width: 100%;
+        min-height: 100%;
+      }
+
       .slide {
         position: absolute;
         width: 100%;
@@ -44,7 +49,8 @@
         background-repeat: no-repeat;
         background-size: contain;
         opacity: 0;
-        transition: opacity 0.6s ease-in-out, transform 0.3s ease;
+        transition: opacity 0.6s ease-in-out, transform 0.3s ease,
+          width 0.3s ease, height 0.3s ease;
         transform-origin: center center;
       }
 
@@ -129,9 +135,9 @@
       .fullscreen-btn {
         position: fixed;
         top: 20px;
-        right: 20px;
-        width: 50px;
-        height: 50px;
+        right: 10px;
+        width: 40px;
+        height: 40px;
         background-color: rgba(0, 0, 0, 0.5);
         border: 2px solid rgba(255, 255, 255, 0.8);
         border-radius: 8px;
@@ -163,17 +169,17 @@
 
       .zoom-controls {
         position: fixed;
-        top: 80px;
-        right: 20px;
+        top: 70px;
+        right: 10px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 5px;
         z-index: 100;
       }
 
       .zoom-btn {
-        width: 50px;
-        height: 50px;
+        width: 40px;
+        height: 40px;
         background-color: rgba(0, 0, 0, 0.5);
         border: 2px solid rgba(255, 255, 255, 0.8);
         border-radius: 8px;
@@ -448,14 +454,60 @@
       function applyZoom() {
         const activeSlide = slides[current];
         if (activeSlide) {
-          activeSlide.style.transform = `scale(${zoomLevel})`;
           if (zoomLevel > MIN_ZOOM) {
+            // When zoomed, set actual dimensions to create proper scrollable area
+            const containerWidth = slider.offsetWidth || window.innerWidth;
+            const containerHeight = slider.offsetHeight || window.innerHeight;
+            const scaledWidth = containerWidth * zoomLevel;
+            const scaledHeight = containerHeight * zoomLevel;
+
+            // Set explicit dimensions
+            activeSlide.style.width = `${scaledWidth}px`;
+            activeSlide.style.height = `${scaledHeight}px`;
+            activeSlide.style.minWidth = `${scaledWidth}px`;
+            activeSlide.style.minHeight = `${scaledHeight}px`;
+            // Position to ensure scroll area covers full size
+            // Use top/left positioning to start from origin
+            activeSlide.style.top = "0";
+            activeSlide.style.left = "0";
+            activeSlide.style.transform = "";
+            activeSlide.style.right = "auto";
+            activeSlide.style.bottom = "auto";
+            // Ensure the element extends properly for scroll calculation
+            // By explicitly preventing any constraints
+            activeSlide.style.boxSizing = "border-box";
             slider.classList.add("zoomed");
+
+            // Force recalculation of scroll dimensions
+            // Temporarily trigger a reflow to ensure scroll dimensions are updated
+            void slider.offsetHeight; // Force reflow
+            requestAnimationFrame(() => {
+              // Set scroll to center position
+              const maxScrollLeft = Math.max(0, scaledWidth - containerWidth);
+              const maxScrollTop = Math.max(0, scaledHeight - containerHeight);
+              const scrollLeft = maxScrollLeft / 2;
+              const scrollTop = maxScrollTop / 2;
+              slider.scrollLeft = scrollLeft;
+              slider.scrollTop = scrollTop;
+            });
+
             // Hide navigation buttons when zoomed in
             nextBtn.classList.add("hidden");
             prevBtn.classList.add("hidden");
             backToMain.classList.add("hidden");
           } else {
+            // Reset to original dimensions and position
+            activeSlide.style.width = "100%";
+            activeSlide.style.height = "100%";
+            activeSlide.style.minWidth = "";
+            activeSlide.style.minHeight = "";
+            activeSlide.style.transform = "";
+            activeSlide.style.top = "";
+            activeSlide.style.left = "";
+            activeSlide.style.right = "";
+            activeSlide.style.bottom = "";
+            slider.scrollLeft = 0;
+            slider.scrollTop = 0;
             slider.classList.remove("zoomed");
             // Show navigation buttons based on current slide (restore normal state)
             restoreNavigationButtons();
@@ -530,9 +582,13 @@
         // Reset zoom when changing slides
         resetZoom();
 
-        // Reset all slides transform
+        // Reset all slides dimensions and transform
         slides.forEach((slide) => {
-          slide.style.transform = "scale(1)";
+          slide.style.width = "100%";
+          slide.style.height = "100%";
+          slide.style.transform = "";
+          slide.style.top = "";
+          slide.style.left = "";
         });
 
         slides.forEach((slide) => slide.classList.remove("active"));
