@@ -424,14 +424,41 @@
       updateFullscreenButton();
 
       // --- Zoom functionality ---
+      function restoreNavigationButtons() {
+        // Restore navigation buttons based on current slide without resetting zoom
+        if (current === 0) {
+          nextBtn.classList.add("hidden");
+          prevBtn.classList.add("hidden");
+          backToMain.classList.add("hidden");
+        } else if (current === 1) {
+          nextBtn.classList.remove("hidden");
+          prevBtn.classList.remove("hidden");
+          backToMain.classList.add("hidden");
+        } else if (current === slides.length - 1) {
+          nextBtn.classList.add("hidden");
+          prevBtn.classList.add("hidden");
+          backToMain.classList.add("hidden");
+        } else {
+          backToMain.classList.remove("hidden");
+          nextBtn.classList.remove("hidden");
+          prevBtn.classList.remove("hidden");
+        }
+      }
+
       function applyZoom() {
         const activeSlide = slides[current];
         if (activeSlide) {
           activeSlide.style.transform = `scale(${zoomLevel})`;
           if (zoomLevel > MIN_ZOOM) {
             slider.classList.add("zoomed");
+            // Hide navigation buttons when zoomed in
+            nextBtn.classList.add("hidden");
+            prevBtn.classList.add("hidden");
+            backToMain.classList.add("hidden");
           } else {
             slider.classList.remove("zoomed");
+            // Show navigation buttons based on current slide (restore normal state)
+            restoreNavigationButtons();
           }
           updateZoomButtons();
         }
