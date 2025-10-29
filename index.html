@@ -27,6 +27,15 @@
         overflow: hidden;
       }
 
+      .slider-container.zoomed {
+        overflow: auto;
+        cursor: grab;
+      }
+
+      .slider-container.zoomed:active {
+        cursor: grabbing;
+      }
+
       .slide {
         position: absolute;
         width: 100%;
@@ -35,7 +44,8 @@
         background-repeat: no-repeat;
         background-size: contain;
         opacity: 0;
-        transition: opacity 0.6s ease-in-out;
+        transition: opacity 0.6s ease-in-out, transform 0.3s ease;
+        transform-origin: center center;
       }
 
       .slide.active {
@@ -65,6 +75,22 @@
       .arrow.right {
         right: 20px;
         background-image: url("Next.png");
+      }
+
+      /* Smaller arrows on mobile/tablets */
+      @media (max-width: 768px) {
+        .arrow {
+          width: 40px;
+          height: 40px;
+        }
+
+        .arrow.left {
+          left: 10px;
+        }
+
+        .arrow.right {
+          right: 10px;
+        }
       }
 
       .back-to-main {
@@ -134,6 +160,70 @@
         opacity: 0;
         pointer-events: none;
       }
+
+      .zoom-controls {
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 100;
+      }
+
+      .zoom-btn {
+        width: 50px;
+        height: 50px;
+        background-color: rgba(0, 0, 0, 0.5);
+        border: 2px solid rgba(255, 255, 255, 0.8);
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(5px);
+      }
+
+      .zoom-btn:hover {
+        background-color: rgba(0, 0, 0, 0.7);
+        transform: scale(1.1);
+      }
+
+      .zoom-btn:active {
+        transform: scale(0.95);
+      }
+
+      .zoom-btn.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* Smaller zoom buttons on mobile */
+      @media (max-width: 768px) {
+        .zoom-controls {
+          top: 70px;
+          right: 10px;
+          gap: 8px;
+        }
+
+        .zoom-btn {
+          width: 40px;
+          height: 40px;
+          font-size: 20px;
+        }
+      }
+
+      /* Zoom container for slides */
+      .slide-zoom-container {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        transition: transform 0.3s ease;
+      }
     </style>
   </head>
   <body>
@@ -199,6 +289,12 @@
       ⛶
     </button>
 
+    <!-- ZOOM CONTROLS -->
+    <div class="zoom-controls" id="zoomControls">
+      <button class="zoom-btn" id="zoomInBtn" title="Zoom In">+</button>
+      <button class="zoom-btn" id="zoomOutBtn" title="Zoom Out">−</button>
+    </div>
+
     <script>
       const slides = document.querySelectorAll(".slide");
       const nextBtn = document.querySelector(".arrow.right");
@@ -207,10 +303,17 @@
       const hotspots = document.querySelectorAll(".hotspot");
       const slider = document.getElementById("slider");
       const fullscreenBtn = document.getElementById("fullscreenBtn");
+      const zoomInBtn = document.getElementById("zoomInBtn");
+      const zoomOutBtn = document.getElementById("zoomOutBtn");
+      const zoomControls = document.getElementById("zoomControls");
       let current = 0;
       let resetTimer = null;
       let startX = 0;
       let fullscreenRequested = false;
+      let zoomLevel = 1;
+      const MIN_ZOOM = 1;
+      const MAX_ZOOM = 3;
+      const ZOOM_STEP = 0.25;
 
       // --- Fullscreen functionality ---
       function isFullscreen() {
@@ -320,8 +423,91 @@
       // Initialize button state
       updateFullscreenButton();
 
+      // --- Zoom functionality ---
+      function applyZoom() {
+        const activeSlide = slides[current];
+        if (activeSlide) {
+          activeSlide.style.transform = `scale(${zoomLevel})`;
+          if (zoomLevel > MIN_ZOOM) {
+            slider.classList.add("zoomed");
+          } else {
+            slider.classList.remove("zoomed");
+          }
+          updateZoomButtons();
+        }
+      }
+
+      function zoomIn() {
+        if (zoomLevel < MAX_ZOOM) {
+          zoomLevel = Math.min(zoomLevel + ZOOM_STEP, MAX_ZOOM);
+          applyZoom();
+        }
+      }
+
+      function zoomOut() {
+        if (zoomLevel > MIN_ZOOM) {
+          zoomLevel = Math.max(zoomLevel - ZOOM_STEP, MIN_ZOOM);
+          applyZoom();
+        }
+      }
+
+      function resetZoom() {
+        zoomLevel = MIN_ZOOM;
+        applyZoom();
+      }
+
+      function updateZoomButtons() {
+        zoomInBtn.disabled = zoomLevel >= MAX_ZOOM;
+        zoomOutBtn.disabled = zoomLevel <= MIN_ZOOM;
+
+        if (zoomLevel >= MAX_ZOOM) {
+          zoomInBtn.style.opacity = "0.5";
+          zoomInBtn.style.cursor = "not-allowed";
+        } else {
+          zoomInBtn.style.opacity = "1";
+          zoomInBtn.style.cursor = "pointer";
+        }
+
+        if (zoomLevel <= MIN_ZOOM) {
+          zoomOutBtn.style.opacity = "0.5";
+          zoomOutBtn.style.cursor = "not-allowed";
+        } else {
+          zoomOutBtn.style.opacity = "1";
+          zoomOutBtn.style.cursor = "pointer";
+        }
+      }
+
+      // Zoom button event listeners
+      zoomInBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        zoomIn();
+      });
+
+      zoomOutBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        zoomOut();
+      });
+
+      // Hide zoom controls on first slide
+      function updateZoomControlsVisibility() {
+        if (current === 0) {
+          zoomControls.classList.add("hidden");
+        } else {
+          zoomControls.classList.remove("hidden");
+        }
+      }
+
       function showSlide(index) {
         clearTimeout(resetTimer);
+
+        // Reset zoom when changing slides
+        resetZoom();
+
+        // Reset all slides transform
+        slides.forEach((slide) => {
+          slide.style.transform = "scale(1)";
+        });
+
         slides.forEach((slide) => slide.classList.remove("active"));
         slides[index].classList.add("active");
 
@@ -349,6 +535,9 @@
           nextBtn.classList.remove("hidden");
           prevBtn.classList.remove("hidden");
         }
+
+        // Update zoom controls visibility
+        updateZoomControlsVisibility();
       }
 
       nextBtn.addEventListener("click", () => {
@@ -402,6 +591,10 @@
           }
         }
       });
+
+      // Initialize zoom controls
+      updateZoomControlsVisibility();
+      updateZoomButtons();
     </script>
   </body>
 </html>
